@@ -67,4 +67,3 @@ fi
 
 echo "Swap file has been created"
 echo "Reboot to make sure changes are in effect"
-
