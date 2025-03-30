@@ -1,11 +1,14 @@
 #!/bin/bash
 # 
 DRIVE_LABEL=""
+SWAP_MODE=0
+
 function usage
 {
-    echo "usage: autoMount.sh [ [-l label] | [-h]]"
+    echo "usage: autoMount.sh [ [-l label] | [-s] | [-h]]"
     echo "  -l | --label  <labelname>   Label to lookup"
-    echo "  -h | --help  This message"
+    echo "  -s | --swap               Swap mode - find device by label but don't check for UUID or mounting"
+    echo "  -h | --help               This message"
 }
 
 if [ $# -eq 0 ]
@@ -20,6 +23,8 @@ while [ "$1" != "" ]; do
         -l | --label | -L )     shift
                                 DRIVE_LABEL=$1
                                 ;;
+        -s | --swap )           SWAP_MODE=1
+                                ;;
         -h | --help )           usage
                                 exit
                                 ;;
@@ -33,12 +38,20 @@ echo 'Looking up UUID from the Label:' "$DRIVE_LABEL"
 
 DEVICE_NAME=""
 UUID_STRING=""
+
 if [ "$DRIVE_LABEL" != "" ] ; then
-   DEVICE_NAME=$(findfs LABEL="$DRIVE_LABEL")
+   DEVICE_NAME=$(findfs LABEL="$DRIVE_LABEL" 2>/dev/null)
+   
    if [ "$DEVICE_NAME" != "" ] ; then
       echo "Device: " $DEVICE_NAME
+      
+      # If in swap mode, we just need the device name
+      if [ "$SWAP_MODE" -eq 1 ]; then
+         exit 0
+      fi
+      
       # Lookup UUID
-      UUID_STRING=$(findmnt $DEVICE_NAME -o UUID)
+      UUID_STRING=$(findmnt $DEVICE_NAME -o UUID 2>/dev/null)
       if [ "$UUID_STRING" != "" ] ; then
          UUID_STRING=`echo "$UUID_STRING" | sed -n '1!p'`
          echo "UUID: ""$UUID_STRING"
@@ -75,7 +88,10 @@ if [ "$DRIVE_LABEL" != "" ] ; then
             echo "Unable to locate target mount point"
          fi
       else
-         echo "Unable to match " $DEVICE_NAME " with UUID"
+         # Handle the case where device exists but is not mounted yet
+         if [ "$SWAP_MODE" -eq 0 ]; then
+            echo "Unable to match " $DEVICE_NAME " with UUID - device may not be mounted yet"
+         fi
          exit 1
       fi
    else
